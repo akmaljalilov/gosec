@@ -309,3 +309,4 @@ function _M.reset(self)
     self.stats = {}
     self.ruleset = new_rule_set()
 end
+return _M
