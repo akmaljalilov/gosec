@@ -21,17 +21,18 @@ local _M = {}
 -- new_analyzer builds a new analyzer.
 function _M.new(conf, tests, logger)
     local ignore_no_sec = false
-    local enabled, err = pairs(conf.s_global_enabled, conf, const.no_sec)
+    local enabled, err = conf and pairs(conf.s_global_enabled, conf, const.no_sec) or false, true
     if enabled and err == nil then
         ignore_no_sec = enabled
     end
     if logger == nil then
-        logger = log.new(os.Stderr, "[gosec]", log.lstd_flags)
+        --logger = log.new(os.Stderr, "[gosec]", log.lstd_flags)
     end
     return setmetatable({
         ignore_no_sec = ignore_no_sec,
         logger = logger,
         tests = tests,
+        config = conf
     }, { __index = _M })
 end
 -- Setconfig upates the analyzer configuration
@@ -225,7 +226,7 @@ function _M.ignore(self, n)
                 self.stats.num_nosec = self.stats.num_nosec + 1
 
                 -- Pull out the specific rules that are listed to be ignored.
-                local re = '(G\d{3})'
+                local re = '(G\\d{3})'
                 --matches := re.FindAllStringSubmatch(group.text(), -1)
 
                 -- If no specific rules were given, ignore everything.

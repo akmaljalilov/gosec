@@ -1,0 +1,13 @@
+require("busted.runner")()
+local anz = require("analizer")
+local rules = require("rules.rulelist")
+describe("analizer ", function()
+    local analizer, tests, logger
+    before_each(function()
+        analizer = anz.new(nil, tests, logger)
+    end)
+    it("should be able to analyze lua files", function()
+        local rls = rules.generate()
+        analizer:load_rules(rules.builders(rls))
+    end)
+end)
