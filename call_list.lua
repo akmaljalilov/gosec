@@ -10,6 +10,9 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 local helper = require("helper")
+local pairs = pairs
+local find = string.find
+local setmetatable = setmetatable
 local vendorPath = "vendor/"
 local _M = {}
 function _M.new()
@@ -54,16 +57,16 @@ end
 --  ContainsPkgCallExpr resolves the call expression name and type, and then further looks
 --  up the package path for that type. Finally, it determines if the call exists within the call list
 function _M.contains_pkg_call_expr(self, n, ctx, strip_vendor)
-    selector, ident, err = helper.get_call_info(n, ctx)
+    local selector, ident, err = helper.get_call_info(n, ctx)
     if err then
         return nil
     end
-    path, ok = helper.get_import_path(selector, ctx)
+    local path, ok = helper.get_import_path(selector, ctx)
     if not ok then
         return nil
     end
     if strip_vendor then
-        local _, vendorIdx = string.find(path, vendorPath);
+        local _, vendorIdx = find(path, vendorPath);
         if vendorIdx then
             path = path:sub(vendorIdx)
         end
@@ -77,12 +80,12 @@ end
 -- ContainsCallExpr resolves the call expression name and type, and then determines
 -- if the call exists with the call list
 function _M.contains_pkg_call_expr(self, n, ctx)
-    selector, ident, err = helper.get_call_info(n, ctx)
+    local selector, ident, err = helper.get_call_info(n, ctx)
     if err then
         return nil
     end
 
-    if not self:contains(selector, ident) and self:contains_pointer(selector,ident) then
+    if not self:contains(selector, ident) and not self:contains_pointer(selector, ident) then
         return nil
     end
     return n.call_expr
