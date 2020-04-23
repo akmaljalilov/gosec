@@ -11,6 +11,11 @@
 --WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 --See the License for the specific language governing permissions and
 --limitations under the License.
+local utils = require("utils.array_utils")
+local tonumber = tonumber
+local push = table.insert
+local pairs = pairs
+local mth_floor = math.floor
 local array = utils.array_utils
 local _M = {}
 
@@ -56,46 +61,47 @@ function _M.match_complit(n, ctx, required)
 end
 
 --GetInt will read and return an integer value from an ast.BasicLit
-function get_int(n)
+function _M.get_int(n)
     local node, ok = n.basic_lit
     if ok and node.kind == token.INT then
-        return math.floor(node.value.tonumber()), nil
+        return mth_floor(tonumber(node.value)), nil
     end
     return 0, error(("Unexpected AST node type: %T"):format(n))
 end
 
 --GetFloat will read and return a float value from an ast.BasicLit
-function get_float(n)
+function _M.get_float(n)
     local node, ok = n.basic_lit
     if ok and node.kind == token.FLOAT then
-        return node.value.tonumber(), nil
+        return tonumber(node.value), nil
     end
     return 0.0, error(("Unexpected AST node type: %T"):format(n))
 end
 
 --GetChar will read and return a char value from an ast.BasicLit
-function get_char(n)
+function _M.get_char(n)
     local node, ok = n.basic_lit
     if ok and node.kind == token.CHAR then
-        return node.value[0], nil
+        return node.value[1], nil
     end
     return 0, error(("Unexpected AST node type: %T"):format(n))
 end
 
 --GetString will read and return a string value from an ast.BasicLit
-function get_string(n)
+function _M.get_string(n)
     local node, ok = n.basic_lit
     if ok and node.kind == token.STRING then
-        return string.format(node.value), nil
+        return string.format(node.value)
     end
-    return "", error(("Unexpected AST node type: %T"):format(n))
+    error(("Unexpected AST node type: %T"):format(n))
 end
 
 --GetCallObject returns the object and call expression and associated
 --object for a given AST node. nil, nil will be returned if the
 --object cannot be resolved.
-function get_call_object(n, ctx)
-    if n.type == ast.call_expr then
+function _M.get_call_object(n, ctx)
+    local node = n.type
+    if node == ast.call_expr then
         local fn = node.fun.type
         if fn == ast.ident then
             return node, ctx.info.uses[fn]
@@ -108,7 +114,7 @@ end
 
 -- GetCallInfo returns the package or type and name  associated with a
 -- call expression.
-function get_call_info(n, ctx)
+function _M.get_call_info(n, ctx)
     local node = n.type
     if node == ast.selector_expr then
         local expr = fn.x.type;
@@ -116,7 +122,7 @@ function get_call_info(n, ctx)
             if expr.obj and expr.obj.kind == ast.var then
                 local t = ctx.info.type_of(expr)
                 if t then
-                    return t.string(), fn.sel.name, nil
+                    return tostring(t), fn.sel.name, nil
                 end
                 return "undefined", fn.sel.name, error("missing type info")
             end
@@ -125,7 +131,7 @@ function get_call_info(n, ctx)
             if expr.sel then
                 local t = ctx.info.type_of(expr.sel)
                 if t then
-                    return t.string(), fn.sel.name, nil
+                    return tostring(t), fn.sel.name, nil
                 end
                 return "undefined", fn.sel.name, error("missing type info")
             end
@@ -133,25 +139,25 @@ function get_call_info(n, ctx)
             local call = expr.fun.type
             if call == ast.ident then
                 if call.name == "new" then
-                    local t = ctx.info.type_of(expr.args[0])
+                    local t = ctx.info.type_of(expr.args[1])
                     if t then
                         return t.string, fn.sel.name, nil
                     end
+                    return "undefined", fn.sel.name, error("missing type info")
                 end
-                return "undefined", fn.sel.name, error("missing type info")
-                if call.obj then
-                    local decl = call.obj.decl.type
-                    if decl == ast.func_decl then
-                        local ret = decl.type.results
-                        if ret and #ret.list > 0 then
-                            local retl = ret.list[0]
-                            if retl then
-                                local t = ctx.info.type_of(retl.type)
-                                if t then
-                                    return t.string, fn.sel.name, nil
-                                end
-                                return "undefined", fn.sel.name, error("missing type info")
+            end
+            if call.obj then
+                local decl = call.obj.decl.type
+                if decl == ast.func_decl then
+                    local ret = decl.type.results
+                    if ret and #ret.list > 0 then
+                        local retl = ret.list[0]
+                        if retl then
+                            local t = ctx.info.type_of(retl.type)
+                            if t then
+                                return t.string, fn.sel.name, nil
                             end
+                            return "undefined", fn.sel.name, error("missing type info")
                         end
                     end
                 end
@@ -163,22 +169,22 @@ function get_call_info(n, ctx)
     return "", "", error("unable to determine call info")
 end
 
--- GetCallStringArgsValues returns the values of strings arguments if they can be resolved
-function get_call_string_args_values(n, ctx)
+-- get_call_string_args_values returns the values of strings arguments if they can be resolved
+function _M.get_call_string_args_values(n)
     local values = {}
     local node = n.type
     if node == ast.call_expr then
         for _, arg in pairs(node.args) do
             local param = arg.type
             if param == ast.basic_lit then
-                local value, err = get_string(param)
-                if err == nil then
-                    table.insert(values, value)
+                local err, value = pcall(_M.get_string, param)
+                if not err then
+                    push(values, value)
                 end
             elseif param == ast.ident then
-                local _vals = get_ident_string_values(param)
+                local _vals = _M.get_ident_string_values(param)
                 for v in pairs(_vals) do
-                    table.insert(values, v)
+                    push(values, v)
                 end
             end
         end
@@ -186,24 +192,24 @@ function get_call_string_args_values(n, ctx)
     return values
 end
 
--- GetIdentStringValues return the string values of an Ident if they can be resolved
-function get_ident_string_values(ident)
+-- get_ident_string_values return the string values of an Ident if they can be resolved
+function _M.get_ident_string_values(ident)
     local values = {}
     local obj = ident.obj
     if obj then
         local decl = obj.decl.type
         if decl == ast.value_spec then
             for _, v in pairs(decl.values) do
-                local value, err = get_string(v)
+                local value, err = _M.get_string(v)
                 if err == nil then
-                    table.insert(values, value)
+                    push(values, value)
                 end
             end
         elseif decl == ast.assign_stmt then
             for _, v in pairs(decl.rhs) do
-                local value, err = get_string(v)
+                local value, err = _M.get_string(v)
                 if err == nil then
-                    table.insert(values, value)
+                    push(values, value)
                 end
             end
         end
@@ -213,7 +219,7 @@ end
 
 -- GetImportedName returns the name used for the package within the
 -- code. It will resolve aliases and ignores initialization only imports.
-function get_imported_name(path, ctx)
+function _M.get_imported_name(path, ctx)
     local importName, imported = ctx.imports.imported[path]
     if not imported then
         return "", false
@@ -231,9 +237,9 @@ end
 
 -- GetImportPath resolves the full import path of an identifier based on
 -- the imports in the current context.
-function get_import_path(name, ctx)
+function _M.get_import_path(name, ctx)
     for path in pairs(ctx.imports.imported) do
-        local imported, ok = get_imported_name(path, ctx)
+        local imported, ok = _M.get_imported_name(path, ctx)
         if ok and imported == name then
             return path, true
         end
@@ -242,13 +248,13 @@ function get_import_path(name, ctx)
 end
 
 -- GetLocation returns the filename and line number of an ast.Node
-function get_location(n, ctx)
+function _M.get_location(n, ctx)
     local fobj = ctx.file_set.file(n.pos())
     return fobj.name(), fobj.line(n.pos())
 end
-
+--TODO
 -- Gopath returns all GOPATHs
-function go_path()
+function _M.go_path()
     local default_gopath = runtime.GOROOT()
     local u, err = user.current()
     if err == nil then
