@@ -90,3 +90,5 @@ function _M.contains_pkg_call_expr(self, n, ctx)
     end
     return n.call_expr
 end
+
+return _M;
