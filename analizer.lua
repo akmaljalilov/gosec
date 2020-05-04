@@ -21,7 +21,7 @@ local _M = {}
 -- new_analyzer builds a new analyzer.
 function _M.new(conf, tests, logger)
     local ignore_no_sec = false
-    local enabled, err = conf and pairs(conf.s_global_enabled, conf, const.no_sec) or false, true
+    local enabled, err = pcall(conf.is_global_enabled, conf, const.no_sec)
     if enabled and err == nil then
         ignore_no_sec = enabled
     end

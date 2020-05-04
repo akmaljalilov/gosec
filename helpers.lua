@@ -126,7 +126,7 @@ function _M.get_call_info(n, ctx)
                 end
                 return "undefined", fn.sel.name, error("missing type info")
             end
-            return expr.name, fn.sel.name, nil
+            return expr.name, fn.sel.name
         elseif expr == ast.selector_expr then
             if expr.sel then
                 local t = ctx.info.type_of(expr.sel)
@@ -450,3 +450,4 @@ function root_path(root)
     end
     return filepath.abs(root)
 end
+return _M
